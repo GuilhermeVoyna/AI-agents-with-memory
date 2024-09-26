@@ -3,15 +3,21 @@ from mem0 import Memory
 from mem0.configs.base import MemoryConfig
 import dotenv
 from openai import OpenAI
+from qdrant_client import QdrantClient
 dotenv.load_dotenv()
 
-os.environ['OPENAI_API_KEY'] = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+QDRANT_API_URL = os.getenv("QDRANT_API_URL")
+user_id = "john"
+
 
 class BaseChatbot:
-    def __init__(self, collection_name, model_name, embedding_model,provider_name):
+    def __init__(self, collection_name, model_name, embedding_model,provider_name,client=None):
         self.config = self.create_config(collection_name, model_name, embedding_model,provider_name)
         self.memory = Memory.from_config(config_dict=self.config)
         self.messages = [{"role": "system", "content": "You are a personal AI Assistant."}]
+        self.client = client
 
     def create_config(self, collection_name, model_name, embedding_model,provider_name):
         """Create a standard configuration for the chatbot."""
@@ -20,9 +26,8 @@ class BaseChatbot:
                 "provider": "qdrant",
                 "config": {
                     "collection_name": collection_name,
-                    "host": "localhost",
-                    "port": 6333,
-                    "embedding_model_dims": 768,  # Adjust as needed
+                    "client": QdrantClient(api_key=QDRANT_API_KEY,url=QDRANT_API_URL),  
+                    
                 },
             },
             "llm": {
@@ -34,10 +39,11 @@ class BaseChatbot:
                 },
             },
             "embedder": {
-                "provider": "ollama",
+                "provider": provider_name,
                 "config": {
                     "model": embedding_model,
                     "ollama_base_url": "http://localhost:11434",
+                    "embedding_dims": 1536,
                 },
             },
             "version": "v1.1"
@@ -83,12 +89,13 @@ class GPTChatbot(BaseChatbot):
 
 
     def __init__(self):
-        self.client = OpenAI()
         super().__init__(
-            collection_name="ye-gpt",
+            collection_name="ye-bot",
             model_name="gpt-4o-mini",
-            embedding_model="nomic-embed-text:latest",
+            embedding_model="text-embedding-3-small",
             provider_name="openai",
+            client = OpenAI(api_key=OPENAI_API_KEY)
+
         )
     def ask_question(self, question, user_id):
         # Fetch previous related memories
@@ -111,7 +118,6 @@ class GPTChatbot(BaseChatbot):
         return answer
 
 def main():
-    user_id = "john"
     gpt_chatbot = GPTChatbot()
 
     while True:
@@ -127,7 +133,6 @@ def main():
             print(f"- {memory}")
         print("-----")
 
-    result = gpt_chatbot.add_message("hey my name is john and i like cakes",user_id="john");print(result)
     memories = gpt_chatbot.get_memories("john")
     print(memories)
 

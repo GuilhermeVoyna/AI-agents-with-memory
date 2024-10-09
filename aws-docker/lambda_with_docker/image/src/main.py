@@ -1,3 +1,4 @@
+import boto3
 import os
 import json
 from datetime import datetime , timezone
@@ -137,7 +138,7 @@ def lambda_handler(event, context):
             prompt += "\nErro ao processar os dados dos exames, recomende que o usuário contate um administrador."
         print("Prompt final:", prompt[:50])
 
-        threading.Thread(target=chatbot.async_add_message, args=(prompt, user_id)).start()
+        invoke_lambda_add_message(prompt, user_id, lambdaname="mem0_add_message")
 
     # Geração da análise imediatamente
     analysis = chatbot.ask_question(message, user_id=user_id, exams_data=exams_data, prev_messages=prev_messages)
@@ -148,12 +149,30 @@ def lambda_handler(event, context):
         "message": analysis
     }
 
-    # Executa o `add_message` em segundo plano
-    threading.Thread(target=chatbot.async_add_message, args=(message, user_id)).start()
-
+    # Executa o `add_message` em uma lambda 
+    invoke_lambda_add_message(analysis, user_id)
+    
     print("Resposta final:", response)
     return response
 
+def invoke_lambda_add_message(message, user_id,lambdaname="mem0_add_message"):
+    """Invoca outra função Lambda."""
+    client = boto3.client('lambda')
+
+    payload = {
+        'message': message,
+        'user_id': user_id
+    }
+
+    try:
+        response = client.invoke(
+            FunctionName=lambdaname,
+            InvocationType='Event',
+            Payload=json.dumps(payload)
+        )
+        print(f"Invocação assíncrona da Lambda bem-sucedida. Resposta: {response}")
+    except Exception as e:
+        print(f"Erro ao invocar a Lambda: {e}")
 
 class Chatbot:
     def __init__(self, openai_api_key, qdrant_api_key, qdrant_api_url, collection_name="ye-bot", model_name="gpt-4o-mini", embedding_model="text-embedding-3-small", provider_name="openai"):
@@ -315,8 +334,3 @@ class Chatbot:
         print(f"Pergunta armazenada na memória para o user_id: {user_id}")
 
         return answer
-
-    def async_add_message(self, message, user_id):
-        """Função para adicionar mensagem na memória de forma assíncrona."""
-        print("Async add_message...")
-        self.memory.add(message, user_id=user_id,prompt="Voce consegue decorar apenas dados médico e o nome do seu analito mas so consegue decorar APENAS os dados medicos")

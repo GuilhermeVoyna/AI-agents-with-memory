@@ -8,10 +8,10 @@ Clone o repositorio
   git clone https://github.com/GuilhermeVoyna/AI-agents-with-memory.git;
   cd AI-agents-with-memory
 ```
-### Para editar lambda da aws localmente
+### Para editar lambda do agente medico
 Navegue para pasta image
 ```bash
-   cd docker-lambda-aws/image
+   cd aws-docker/image/lambda_with_docker
 ```
 Build o docker
 ```bash
@@ -24,6 +24,23 @@ docker run -p 9000:8080 \
       -e QDRANT_API_KEY="sua_chave_qdrant" \
       -e QDRANT_API_URL="url_qdrant" \
       lambda_with_docker
+```
+### Para editar lambda da mensagem
+Navegue para pasta image
+```bash
+   cd aws-docker/image/mem0_add_message
+```
+Build o docker
+```bash
+docker build -t mem0_add_message . 
+```
+Inicie o docker
+```bash
+docker run -p 9000:8080 \
+      -e OPENAI_API_KEY="sua_chave_openai" \
+      -e QDRANT_API_KEY="sua_chave_qdrant" \
+      -e QDRANT_API_URL="url_qdrant" \
+      mem0_add_message
 ```
 
 #### Para usar com flask

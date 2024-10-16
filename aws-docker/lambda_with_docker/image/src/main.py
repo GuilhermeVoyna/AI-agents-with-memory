@@ -59,6 +59,7 @@ def lambda_handler(event, context):
 
     user_id = event.get("uid")
     message = event.get("message")
+    user_name= event.get("uname")
     prev_messages = event.get("messages", [])
     prev_messages = prev_messages[-5:]
     print("prev_messages:", prev_messages)
@@ -105,7 +106,7 @@ def lambda_handler(event, context):
 
         # Construção do prompt
         prompt = f"""
-        Você é um assistente de saúde chamado Dr. Flamingo. O seu cliente tem as seguintes características:
+        Você é um assistente de saúde chamado Dr. Flamingo. O seu cliente chamado {user_name} tem as seguintes características:
         - Sexo: {gender}
         - Peso: {weight} kg
         - Idade: {age or 'Indefinida'}
@@ -126,22 +127,12 @@ def lambda_handler(event, context):
         if not exams_data:
             prompt += "\nNenhum dado de exame cadastrado, recomende que o usuário cadastre seus exames."
 
-        try:
-            df = pd.concat([pd.DataFrame(d) for d in exams_data], ignore_index=True)
-            df = df[["Data", "RESULTADOS", "ANALITOS", "VALORES DE REFERÊNCIA"]].dropna(subset=["RESULTADOS"])
-            df["Timestamp"] = df["Data"].apply(lambda x: x["seconds"])
-            df = df.drop(columns=["Data"])
-            data = df.to_dict(orient="records")
-            prompt += f"\nExamedocs: {data}"
-        except Exception as e:
-            print(f"Erro ao processar os dados dos exames: {e}")
-            prompt += "\nErro ao processar os dados dos exames, recomende que o usuário contate um administrador."
         print("Prompt final:", prompt[:50])
 
         invoke_lambda_add_message(prompt, user_id, lambdaname="mem0_add_message")
 
     # Geração da análise imediatamente
-    analysis = chatbot.ask_question(message, user_id=user_id, exams_data=exams_data, prev_messages=prev_messages)
+    analysis = chatbot.ask_question(message, user_id=user_id, exams_data=exams_data, prev_messages=prev_messages,user_name=user_name)
     print("Análise final gerada pelo chatbot:", analysis)
 
     # Retorna a resposta imediatamente
@@ -295,14 +286,14 @@ class Chatbot:
             print("Error: resposta não esperada")
             return False
 
-    def ask_question(self, question, user_id,exams_data,prev_messages=[]):
+    def ask_question(self, question, user_id,exams_data,prev_messages=[],user_name="Usuário"):
         """Gera uma resposta para a pergunta usando o modelo GPT."""
         print(f"Fazendo pergunta: {question} para o user_id: {user_id}")
         previous_memories = self.search_memories(question, user_id=user_id,limit=5)
-        prompt = "Seu nome é Dr Flamingo, você é um assistente de saúde.\n decore numeros de exames e analitos"
+        prompt = "Seu nome é Dr Flamingo, você é um assistente de saúde.\n"
 
         if previous_memories:
-            prompt = prompt + f" Previous memories: {previous_memories} decore numeros de exames e analitos"
+            prompt = prompt + f" Previous memories: {previous_memories}"
         if self.extra_data(question,dados=[previous_memories+prev_messages]):
             try:
                 df = pd.concat([pd.DataFrame(d) for d in exams_data], ignore_index=True)
@@ -310,7 +301,7 @@ class Chatbot:
                 df["Timestamp"] = df["Data"].apply(lambda x: x["seconds"])
                 df = df.drop(columns=["Data"])
                 data = df.to_dict(orient="records")
-                prompt = f"Dados médicos {data} decore numeros de exames e analitos" + prompt
+                prompt = f"Dados médicos {data}" + prompt
             except Exception as e:
                 print(f"Erro ao processar os dados dos exames: {e}")
                 prompt += "\nErro ao processar os dados dos exames, recomende que o usuário contate um adiministrador."         
@@ -320,7 +311,8 @@ class Chatbot:
             model=self.model_name,
             messages=[
             *prev_messages,
-            {"role": "system", "content": prompt},
+            {"role": "system", "content": "SEU NOME É Dr. Flamingo e responda perguntas medicas. O nome do seu cliente é "+user_name},
+            {"role": "assistant", "content": prompt},
             {
                 "role": "user",
                 "content": f"Responda em português: {question}",

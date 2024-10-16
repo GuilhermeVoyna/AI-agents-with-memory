@@ -8,6 +8,11 @@ Clone o repositorio
   git clone https://github.com/GuilhermeVoyna/AI-agents-with-memory.git;
   cd AI-agents-with-memory
 ```
+### Login no aws
+```bash
+   aws ecr get-login-password --region region | docker login --username AWS --password-stdin aws_account_id.dkr.ecr.region.amazonaws.com
+```
+
 ### Para editar lambda do agente medico
 Navegue para pasta image
 ```bash
